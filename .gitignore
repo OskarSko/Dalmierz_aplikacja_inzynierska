@@ -66,3 +66,9 @@ crashlytics-build.properties
 
 # Packed itc asset bundles
 *.itc
+
+# Unity 6 Android Build / C++ artifacts
+.utmp/
+compile_commands.json
+*.cmake
+*.o

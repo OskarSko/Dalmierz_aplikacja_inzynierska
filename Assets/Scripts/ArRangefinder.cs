@@ -45,4 +45,11 @@ public class ArRangefinder : MonoBehaviour
             distanceText.text = "Szukam celu...";
         }
     }
+    void OnDisable()
+    {
+        if(crosshair != null)
+        {
+            crosshair.enabled = false;
+        }
+    }
 }
