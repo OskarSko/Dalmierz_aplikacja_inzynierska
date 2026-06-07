@@ -30,12 +30,12 @@ public class RangeFinder : MonoBehaviour
     {
         RectTransform canvasRect = topLine.GetComponentInParent<Canvas>().GetComponent<RectTransform>();
         canvasHeight = canvasRect.rect.height;
-        if (zoomSlider != null)
+        /*if (zoomSlider != null)
         {
             zoomSlider.minValue = 1f;
             zoomSlider.maxValue = 5f;
             zoomSlider.value = 1f;
-        }
+        }*/
 
     }
 
@@ -111,10 +111,11 @@ public class RangeFinder : MonoBehaviour
         float realRatio = currentRatio / currentZoom;
 
         float cameraFOV = Camera.fieldOfView;
-        float apparentAngleDegrees = currentRatio * cameraFOV;
+        float apparentAngleDegrees = realRatio * cameraFOV;
         float apparentAngleRad = apparentAngleDegrees * Mathf.Deg2Rad;
         float calculatedDistance = (referenceHeight / 2f) / Mathf.Tan(apparentAngleRad / 2f);
-        distanceText.text = $"Odległość: {calculatedDistance.ToString("F2")} m";
+
+        distanceText.text = $"<size=40%><color=#B0B0B0>CEL: {referenceHeight}m | ZOOM: {currentZoom:F1}x</color></size>\n<b>{calculatedDistance:F2}</b><size=60%> m</size>";
         
     }
     void OnEnable()

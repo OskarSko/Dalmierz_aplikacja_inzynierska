@@ -42,7 +42,7 @@ public class ArRangefinder : MonoBehaviour
         }
         else
         {
-            distanceText.text = "Szukam celu...";
+            distanceText.text = $"<size=50%><color=#B0B0B0>DYSTANS: (Tryb AR)</color></size>\n<b>{smoothedDistance:F2}</b><size=60%> m</size>"; 
         }
     }
     void OnDisable()

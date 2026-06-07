@@ -10,7 +10,9 @@ public class ModeSwitcher : MonoBehaviour
     [Header("UI")]
     public GameObject arCrosshairUI;
     public GameObject rangeFinderLinesUI;
+    public GameObject zoomSliderUI;
     public TextMeshProUGUI buttonText;
+    public TextMeshProUGUI distanceText;
 
     private bool isArMode = true;
     
@@ -39,6 +41,13 @@ public class ModeSwitcher : MonoBehaviour
 
         arCrosshairUI.SetActive(true);
         rangeFinderLinesUI.SetActive(false);
+        zoomSliderUI.SetActive(false);
+
+        buttonText.text = "<b>TRYB DALEKI</b>\n<size=60%>Przełącz</size>";
+        if(distanceText != null)
+        {
+            distanceText.text = "<size=50%><color=#B0B0B0>SKANOWANIE OTOCZENIA...</color></size>";
+        }
     }
     void ActivateRangeFinder()
     {
@@ -47,5 +56,12 @@ public class ModeSwitcher : MonoBehaviour
 
         arCrosshairUI.SetActive(false);
         rangeFinderLinesUI.SetActive(true);
+        zoomSliderUI.SetActive(true);
+        
+        buttonText.text = "<b>Tryb AR </b>\n<size=60%>Przełącz</size>";
+        if (distanceText != null)
+        {
+            distanceText.text = "<size=50%><color=#B0B0B0>KALIBRACJA OPTYKI...</color></size>";
+        }
     }
 }
