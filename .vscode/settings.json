@@ -56,5 +56,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "dalmierz.sln"
+    "dotnet.defaultSolution": "Dalmierz_aplikacja_inzynierska.slnx"
 }

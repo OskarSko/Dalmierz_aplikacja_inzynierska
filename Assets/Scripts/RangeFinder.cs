@@ -22,6 +22,13 @@ public class RangeFinder : MonoBehaviour
     public float currentRatio = 0.2f;
     private bool isDraggingLines = false;
 
+    [Header("Auto-detekcja")]
+    public bool autoDetectMode = false;
+    public float autoSmoothSpeed = 8f;
+    public TextMeshProUGUI autoDetectButtonText;
+    private float targetRatio;
+
+
     private RenderTexture autoRenderTexture;
     private GameObject autoBackgroundObj;
     private RawImage autoRawImage;
@@ -30,6 +37,7 @@ public class RangeFinder : MonoBehaviour
     {
         RectTransform canvasRect = topLine.GetComponentInParent<Canvas>().GetComponent<RectTransform>();
         canvasHeight = canvasRect.rect.height;
+        targetRatio = currentRatio;
         /*if (zoomSlider != null)
         {
             zoomSlider.minValue = 1f;
@@ -42,61 +50,68 @@ public class RangeFinder : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        int touchCount = Touchscreen.current != null ? GetActiveTouchesCount() : 0;
-        if (touchCount == 1)
+        if (!autoDetectMode)
         {
-            var Touch = Touchscreen.current.touches[0];
-            Vector2 touchPos = Touch.position.ReadValue();
-
-            if (Touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Began)
+            int touchCount = Touchscreen.current != null ? GetActiveTouchesCount() : 0;
+            if (touchCount == 1)
             {
-                bool hitTop = RectTransformUtility.RectangleContainsScreenPoint(topLine, touchPos, null);
-                bool hitBottom = RectTransformUtility.RectangleContainsScreenPoint(bottomLine, touchPos, null);
+                var Touch = Touchscreen.current.touches[0];
+                Vector2 touchPos = Touch.position.ReadValue();
 
-                if(hitTop || hitBottom)
+                if (Touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Began)
                 {
-                    isDraggingLines = true;
+                    bool hitTop = RectTransformUtility.RectangleContainsScreenPoint(topLine, touchPos, null);
+                    bool hitBottom = RectTransformUtility.RectangleContainsScreenPoint(bottomLine, touchPos, null);
+
+                    if(hitTop || hitBottom)
+                    {
+                        isDraggingLines = true;
+                    }
+                }
+                else if (Touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Moved)
+                {
+                    if (isDraggingLines)
+                    {
+                        currentRatio += Touch.delta.ReadValue().y * dragSensitivity;
+                        currentRatio = Mathf.Clamp(currentRatio, 0.01f, 1.0f);
+                    }
+                }
+                else if(Touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Ended || Touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Canceled)
+                {
+                    isDraggingLines = false;
                 }
             }
-            else if (Touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Moved)
+            else if (touchCount >= 2)
             {
-                if (isDraggingLines)
+                var touchZero = Touchscreen.current.touches[0];
+                var touchOne = Touchscreen.current.touches[1];
+
+                if (touchZero.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Moved || touchOne.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Moved)
                 {
-                    currentRatio += Touch.delta.ReadValue().y * dragSensitivity;
-                    currentRatio = Mathf.Clamp(currentRatio, 0.01f, 1.0f);
+                    Vector2 touchZeroPos = touchZero.position.ReadValue();
+                    Vector2 touchOnePos = touchOne.position.ReadValue();
+                    
+                    Vector2 touchZeroPrevPos = touchZeroPos - touchZero.delta.ReadValue();
+                    Vector2 touchOnePrevPos = touchOnePos - touchOne.delta.ReadValue();
+
+                    float prevTouchDeltaMag = (touchZeroPrevPos - touchOnePrevPos).magnitude;
+                    float touchDeltaMag = (touchZeroPos - touchOnePos).magnitude;
+                    float deltaMagnitudeDiff = touchDeltaMag - prevTouchDeltaMag;
+
+                    if (zoomSlider != null)
+                    {
+                        zoomSlider.value += deltaMagnitudeDiff * pinchZoomSensitivity;
+                    }
                 }
             }
-            else if(Touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Ended || Touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Canceled)
+            else
             {
                 isDraggingLines = false;
             }
         }
-        else if (touchCount >= 2)
-        {
-            var touchZero = Touchscreen.current.touches[0];
-            var touchOne = Touchscreen.current.touches[1];
-
-            if (touchZero.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Moved || touchOne.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Moved)
-            {
-                Vector2 touchZeroPos = touchZero.position.ReadValue();
-                Vector2 touchOnePos = touchOne.position.ReadValue();
-                
-                Vector2 touchZeroPrevPos = touchZeroPos - touchZero.delta.ReadValue();
-                Vector2 touchOnePrevPos = touchOnePos - touchOne.delta.ReadValue();
-
-                float prevTouchDeltaMag = (touchZeroPrevPos - touchOnePrevPos).magnitude;
-                float touchDeltaMag = (touchZeroPos - touchOnePos).magnitude;
-                float deltaMagnitudeDiff = touchDeltaMag - prevTouchDeltaMag;
-
-                if (zoomSlider != null)
-                {
-                    zoomSlider.value += deltaMagnitudeDiff * pinchZoomSensitivity;
-                }
-            }
-        }
         else
         {
-            isDraggingLines = false;
+            currentRatio = Mathf.Lerp(currentRatio, targetRatio, Time.deltaTime * autoSmoothSpeed);
         }
 
         float currentZoom = zoomSlider != null ? zoomSlider.value : 1f;
@@ -170,5 +185,38 @@ public class RangeFinder : MonoBehaviour
             }
         }
         return count;
+    }
+    public void UpdateFromDetection(PoseKeypoints kp)
+    {
+        if(kp.noseConfidence < 0.3f) return;
+
+        Vector2 headNorm = HeadFootEstimator.EstimateHeadTop(kp);
+        Vector2 feetNorm = HeadFootEstimator.EstimateFeet(kp);
+
+        float ratio = Mathf.Abs(feetNorm.y - headNorm.y);
+        targetRatio = Mathf.Clamp(ratio, 0.01f, 1.0f);
+    }
+    public void ToggleAutoDetectMode()
+    {
+        autoDetectMode = !autoDetectMode;
+
+        if (autoDetectMode)
+        {
+            targetRatio = currentRatio;
+        }
+        if(autoDetectButtonText != null)
+        {
+            autoDetectButtonText.text = autoDetectMode ? "<b>TRYB RĘCZNY</b>\n<size=60%>Przełącz</size>" : "<b>AUTO-DETEKCJA</b>\n<size=60%>Przełącz</size>";
+        }
+    }
+    public void SetAutoDetectMode(bool enabled)
+    {
+        autoDetectMode = enabled;
+        if(enabled) targetRatio = currentRatio;
+
+        if(autoDetectButtonText != null)
+        {
+            autoDetectButtonText.text = autoDetectMode ? "<b>TRYB RĘCZNY</b>\n<size=60%>Przełącz</size>" : "<b>AUTO-DETEKCJA</b>\n<size=60%>Przełącz</size>";
+        }
     }
 }
