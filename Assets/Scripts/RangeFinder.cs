@@ -9,6 +9,7 @@ public class RangeFinder : MonoBehaviour
     [Header("Ustawienia Kamery i Obiektu")]
     public Camera Camera;
     public float referenceHeight = 1.8f;
+    public float anthropometricFactor = 0.896f;
 
     [Header("UI")]
     public RectTransform topLine;
@@ -27,6 +28,11 @@ public class RangeFinder : MonoBehaviour
     public float autoSmoothSpeed = 8f;
     public TextMeshProUGUI autoDetectButtonText;
     private float targetRatio;
+    private float debugRawRatio = -1f;
+    private float debugRawRatioX = -1f;
+    private float debugNoseConf = -1f;
+    private float debugAnkleL = -1f, debugAnkleR = -1f;
+    private int debugUpdateCount = 0;
 
 
     private RenderTexture autoRenderTexture;
@@ -124,13 +130,12 @@ public class RangeFinder : MonoBehaviour
         bottomLine.anchoredPosition = new Vector2(0, -distanceBetweenLines / 2f);
 
         float realRatio = currentRatio / currentZoom;
-
         float cameraFOV = Camera.fieldOfView;
-        float apparentAngleDegrees = realRatio * cameraFOV;
-        float apparentAngleRad = apparentAngleDegrees * Mathf.Deg2Rad;
-        float calculatedDistance = (referenceHeight / 2f) / Mathf.Tan(apparentAngleRad / 2f);
+        float halfFovTan = Mathf.Tan(cameraFOV * 0.5f * Mathf.Deg2Rad);
+        float heightFactor = autoDetectMode ? anthropometricFactor : 1f;
+        float calculatedDistance = (referenceHeight * heightFactor) / (2f * realRatio * halfFovTan);
 
-        distanceText.text = $"<size=40%><color=#B0B0B0>CEL: {referenceHeight}m | ZOOM: {currentZoom:F1}x</color></size>\n<b>{calculatedDistance:F2}</b><size=60%> m</size>";
+        distanceText.text = $"<size=40%><color=#B0B0B0>CEL: {referenceHeight}m | ZOOM: {currentZoom:F1}x</color></size>\n<b>{calculatedDistance:F2}</b><size=60%> m</size>\n<size=30%><color=#22D3EE>raw={debugRawRatio:F3} dx={debugRawRatioX:F3} nos={debugNoseConf:F2} kostki={debugAnkleL:F2}/{debugAnkleR:F2} tgt={targetRatio:F3} cur={currentRatio:F3} upd={debugUpdateCount}</color></size>";
         
     }
     void OnEnable()
@@ -186,15 +191,21 @@ public class RangeFinder : MonoBehaviour
         }
         return count;
     }
-    public void UpdateFromDetection(PoseKeypoints kp)
+    public void UpdateFromDetection(PoseKeypoints kp, float fovFraction = 1f)
     {
-        if(kp.noseConfidence < 0.3f) return;
-
         Vector2 headNorm = HeadFootEstimator.EstimateHeadTop(kp);
         Vector2 feetNorm = HeadFootEstimator.EstimateFeet(kp);
+        debugRawRatio = Mathf.Abs(feetNorm.y - kp.nose.y);
+        debugRawRatioX = Mathf.Abs(feetNorm.x - headNorm.x);
+        debugNoseConf = kp.noseConfidence;
+        debugAnkleL = kp.leftAnkleConfidence;
+        debugAnkleR = kp.rightAnkleConfidence;
 
-        float ratio = Mathf.Abs(feetNorm.y - headNorm.y);
-        targetRatio = Mathf.Clamp(ratio, 0.01f, 1.0f);
+        if (kp.noseConfidence < 0.3f) return;
+
+        debugUpdateCount++;
+        float zoom = zoomSlider != null ? zoomSlider.value : 1f;
+        targetRatio = Mathf.Clamp(debugRawRatio * fovFraction * zoom, 0.01f, 1.0f);
     }
     public void ToggleAutoDetectMode()
     {

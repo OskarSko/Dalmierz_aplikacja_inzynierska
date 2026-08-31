@@ -8,6 +8,8 @@ public struct PoseKeypoints
     public Vector2 leftAnkle, rightAnkle;
     public float noseConfidence;
     public float leftAnkleConfidence, rightAnkleConfidence;
+
+    public float leftEyeConfidence, rightEyeConfidence;
 }
 
 public class PoseKeypointUtils
@@ -39,7 +41,9 @@ public class PoseKeypointUtils
             rightAnkle = new Vector2(rAnkle.x, rAnkle.y),
             noseConfidence = nose.z,
             leftAnkleConfidence = lAnkle.z,
-            rightAnkleConfidence = rAnkle.z
+            rightAnkleConfidence = rAnkle.z,
+            leftEyeConfidence = lEye.z,
+            rightEyeConfidence = rEye.z
         };
     }
 }
