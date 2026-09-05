@@ -11,6 +11,10 @@ public class RangeFinder : MonoBehaviour
     public float referenceHeight = 1.8f;
     public float anthropometricFactor = 0.896f;
 
+    [Header("Kalibracja kamery")]
+    public bool useCalibration = true;
+    public float focalNormalized = 0.673673f;
+
     [Header("UI")]
     public RectTransform topLine;
     public RectTransform bottomLine;
@@ -38,6 +42,14 @@ public class RangeFinder : MonoBehaviour
     private RenderTexture autoRenderTexture;
     private GameObject autoBackgroundObj;
     private RawImage autoRawImage;
+
+    [HideInInspector] public float lastDistance;
+    [HideInInspector] public float lastRatio;
+    [HideInInspector] public float lastNoseConf;
+    [HideInInspector] public float lastAnkleL, lastAnkleR;
+    [HideInInspector] public float lastZoom = 1f;
+    public string debugImageInfo = "?";
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -121,6 +133,7 @@ public class RangeFinder : MonoBehaviour
         }
 
         float currentZoom = zoomSlider != null ? zoomSlider.value : 1f;
+        lastZoom = currentZoom;
         if (autoBackgroundObj != null)
         {
             autoBackgroundObj.transform.localScale = new Vector3(currentZoom, currentZoom, 1f);
@@ -131,9 +144,12 @@ public class RangeFinder : MonoBehaviour
 
         float realRatio = currentRatio / currentZoom;
         float cameraFOV = Camera.fieldOfView;
-        float halfFovTan = Mathf.Tan(cameraFOV * 0.5f * Mathf.Deg2Rad);
+        float halfFovTan = 0.5f / focalNormalized;
         float heightFactor = autoDetectMode ? anthropometricFactor : 1f;
         float calculatedDistance = (referenceHeight * heightFactor) / (2f * realRatio * halfFovTan);
+
+        lastDistance = calculatedDistance;
+        lastRatio = currentRatio;
 
         distanceText.text = $"<size=40%><color=#B0B0B0>CEL: {referenceHeight}m | ZOOM: {currentZoom:F1}x</color></size>\n<b>{calculatedDistance:F2}</b><size=60%> m</size>\n<size=30%><color=#22D3EE>raw={debugRawRatio:F3} dx={debugRawRatioX:F3} nos={debugNoseConf:F2} kostki={debugAnkleL:F2}/{debugAnkleR:F2} tgt={targetRatio:F3} cur={currentRatio:F3} upd={debugUpdateCount}</color></size>";
         
@@ -200,6 +216,9 @@ public class RangeFinder : MonoBehaviour
         debugNoseConf = kp.noseConfidence;
         debugAnkleL = kp.leftAnkleConfidence;
         debugAnkleR = kp.rightAnkleConfidence;
+        lastNoseConf = kp.noseConfidence;
+        lastAnkleL = kp.leftAnkleConfidence;
+        lastAnkleR = kp.rightAnkleConfidence;
 
         if (kp.noseConfidence < 0.3f) return;
 

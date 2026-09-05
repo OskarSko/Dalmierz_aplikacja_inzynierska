@@ -9,8 +9,9 @@ public class PersonAutoDetector : MonoBehaviour
 {
     
     [Header("Adaptacyjne kadrowanie")]
+    public float cropControlConfidence = 0.15f;
     public bool adaptiveCrop = true;
-    public float targetFillRatio = 0.45f;
+    public float targetFillRatio = 0.65f;
     public int minCropSize = 320;
 
     private int currentCropSize = -1;
@@ -117,34 +118,40 @@ public class PersonAutoDetector : MonoBehaviour
             }
             lastDebugTex = tex;
 
-            if (keypoints.HasValue)
+                        if (keypoints.HasValue)
             {
                 rangeFinder.UpdateFromDetection(keypoints.Value, fovFraction);
+            }
 
-                if (adaptiveCrop)
+            if (adaptiveCrop)
+            {
+                bool detected = keypoints.HasValue && keypoints.Value.noseConfidence >= cropControlConfidence;
+
+                if (detected)
                 {
-                    if (keypoints.HasValue && keypoints.Value.noseConfidence >= 0.3f)
-                    {
-                        framesWithoutDetection = 0;
-                        Vector2 feet = HeadFootEstimator.EstimateFeet(keypoints.Value);
-                        float fill = Mathf.Abs(feet.y - keypoints.Value.nose.y);
+                    framesWithoutDetection = 0;
+                    Vector2 feet = HeadFootEstimator.EstimateFeet(keypoints.Value);
+                    float fill = Mathf.Abs(feet.y - keypoints.Value.nose.y);
 
-                        if (fill > 0.05f)
-                        {
-                            int desired = Mathf.RoundToInt(cropSize * (fill / targetFillRatio));
-                            currentCropSize = Mathf.Clamp(
-                                Mathf.RoundToInt(Mathf.Lerp(cropSize, desired, 0.3f)),
-                                minCropSize, maxCrop);
-                        }
-                    }
-                    else
+                    Debug.Log($"[Crop] rozmiar={cropSize} fill={fill:F2} nos={keypoints.Value.noseConfidence:F2} kostki={keypoints.Value.leftAnkleConfidence:F2}/{keypoints.Value.rightAnkleConfidence:F2}");
+
+                    float ankleConf = Mathf.Max(keypoints.Value.leftAnkleConfidence, keypoints.Value.rightAnkleConfidence);
+                    if (fill > 0.05f && ankleConf >= cropControlConfidence)
                     {
-                        framesWithoutDetection++;
-                        if (framesWithoutDetection > 5)
-                        {
-                            currentCropSize = maxCrop;
-                            framesWithoutDetection = 0;
-                        }
+                        int desired = Mathf.RoundToInt(cropSize * (fill / targetFillRatio));
+                        currentCropSize = Mathf.Clamp(
+                            Mathf.RoundToInt(Mathf.Lerp(cropSize, desired, 0.3f)),
+                            minCropSize, maxCrop);
+                    }
+                }
+                else
+                {
+                    framesWithoutDetection++;
+                    if (framesWithoutDetection > 5)
+                    {
+                        currentCropSize = Mathf.Clamp(Mathf.RoundToInt(currentCropSize * 1.2f), minCropSize, maxCrop);
+                        framesWithoutDetection = 0;
+                        Debug.Log($"[Crop] ROZSZERZAM rozmiar={currentCropSize}");
                     }
                 }
             }
