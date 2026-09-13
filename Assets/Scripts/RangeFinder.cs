@@ -31,6 +31,17 @@ public class RangeFinder : MonoBehaviour
     public bool autoDetectMode = false;
     public float autoSmoothSpeed = 8f;
     public TextMeshProUGUI autoDetectButtonText;
+
+    [Header("Przelacznik segmentowy trybu")] 
+    public Image segmentManualBg; 
+    public TextMeshProUGUI segmentManualText; 
+    public Image segmentAutoBg; 
+    public TextMeshProUGUI segmentAutoText; 
+    private readonly Color segActiveBg = new Color(0.133f, 0.827f, 0.933f, 1f); 
+    private readonly Color segInactiveBg = new Color(1f, 1f, 1f, 0f); 
+    private readonly Color segActiveText = new Color(0.016f, 0.173f, 0.325f, 1f); 
+    private readonly Color segInactiveText = new Color(1f, 1f, 1f, 0.65f);
+
     private float targetRatio;
     private float debugRawRatio = -1f;
     private float debugRawRatioX = -1f;
@@ -56,6 +67,7 @@ public class RangeFinder : MonoBehaviour
         RectTransform canvasRect = topLine.GetComponentInParent<Canvas>().GetComponent<RectTransform>();
         canvasHeight = canvasRect.rect.height;
         targetRatio = currentRatio;
+        UpdateModeSegments();
         /*if (zoomSlider != null)
         {
             zoomSlider.minValue = 1f;
@@ -238,6 +250,7 @@ public class RangeFinder : MonoBehaviour
         {
             autoDetectButtonText.text = autoDetectMode ? "<b>TRYB RĘCZNY</b>\n<size=60%>Przełącz</size>" : "<b>AUTO-DETEKCJA</b>\n<size=60%>Przełącz</size>";
         }
+        UpdateModeSegments();
     }
     public void SetAutoDetectMode(bool enabled)
     {
@@ -248,5 +261,13 @@ public class RangeFinder : MonoBehaviour
         {
             autoDetectButtonText.text = autoDetectMode ? "<b>TRYB RĘCZNY</b>\n<size=60%>Przełącz</size>" : "<b>AUTO-DETEKCJA</b>\n<size=60%>Przełącz</size>";
         }
+        UpdateModeSegments();
+    }
+    void UpdateModeSegments()
+    {
+        if (segmentAutoBg != null) segmentAutoBg.color = autoDetectMode ? segActiveBg : segInactiveBg;
+        if (segmentManualBg != null) segmentManualBg.color = autoDetectMode ? segInactiveBg : segActiveBg;
+        if (segmentAutoText != null) segmentAutoText.color = autoDetectMode ? segActiveText : segInactiveText;
+        if (segmentManualText != null) segmentManualText.color = autoDetectMode ? segInactiveText : segActiveText;
     }
 }
