@@ -155,7 +155,6 @@ public class RangeFinder : MonoBehaviour
         bottomLine.anchoredPosition = new Vector2(0, -distanceBetweenLines / 2f);
 
         float realRatio = currentRatio / currentZoom;
-        float cameraFOV = Camera.fieldOfView;
         float halfFovTan = 0.5f / focalNormalized;
         float heightFactor = autoDetectMode ? anthropometricFactor : 1f;
         float calculatedDistance = (referenceHeight * heightFactor) / (2f * realRatio * halfFovTan);

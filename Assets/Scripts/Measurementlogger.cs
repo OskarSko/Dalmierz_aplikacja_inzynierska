@@ -4,32 +4,40 @@ using System.IO;
 using System.Text;
 using System.Globalization;
 
-/// <summary>
-/// Rejestruje pojedyncze pomiary do pliku CSV w pamieci urzadzenia.
-/// Plik sluzy do pozniejszej analizy statystycznej (MAE, RMSE,
-/// odchylenie standardowe, wykresy bledu w funkcji odleglosci).
-///
-/// Separator: srednik. Separator dziesietny: kropka (InvariantCulture).
-/// </summary>
+
 public class MeasurementLogger : MonoBehaviour
 {
     [Header("Referencje")]
     public RangeFinder rangeFinder;
+    public CalibrationProfile calibrationProfile;
 
-    [Header("UI")]
+    [Header("UI - dane pomiaru")]
     public TMP_InputField realDistanceInput;   // odleglosc rzeczywista w metrach
-    public TMP_InputField seriesLabelInput;    // opcjonalna etykieta serii
+    public TMP_InputField seriesLabelInput;    // etykieta serii, np. "A_reczny"
     public TextMeshProUGUI statusText;
 
-    [Header("Warunki pomiaru (do opisu w pracy)")]
-    public string lightingConditions = "dzienne";
-    public string location = "pomieszczenie";
+    [Header("UI - warunki pomiaru (panel ustawien)")]
+    public TMP_InputField lightingInput;       // np. dzienne / sztuczne / zmierzch
+    public TMP_InputField locationInput;       // np. pomieszczenie / na zewnatrz
+    public TMP_InputField referencePersonInput; // np. osoba_A
+
+    [Header("Wartosci domyslne warunkow")]
+    public string defaultLighting = "dzienne";
+    public string defaultLocation = "pomieszczenie";
+    public string defaultReferencePerson = "osoba_A";
 
     private string filePath;
     private int recordCount = 0;
 
     void Start()
     {
+        if (lightingInput != null && string.IsNullOrEmpty(lightingInput.text))
+            lightingInput.text = defaultLighting;
+        if (locationInput != null && string.IsNullOrEmpty(locationInput.text))
+            locationInput.text = defaultLocation;
+        if (referencePersonInput != null && string.IsNullOrEmpty(referencePersonInput.text))
+            referencePersonInput.text = defaultReferencePerson;
+
         string stamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
         filePath = Path.Combine(Application.persistentDataPath, $"pomiary_{stamp}.csv");
 
@@ -51,7 +59,10 @@ public class MeasurementLogger : MonoBehaviour
             "blad_procent",
             "tryb",
             "wysokosc_odniesienia_m",
+            "osoba_odniesienia",
             "focal_normalized",
+            "profil_kalibracji",
+            "urzadzenie_rozpoznane",
             "zoom",
             "ratio",
             "pewnosc_nos",
@@ -78,7 +89,7 @@ public class MeasurementLogger : MonoBehaviour
     {
         if (rangeFinder == null)
         {
-            UpdateStatus("BLAD: brak referencji do RangeFinder");
+            UpdateStatus("<color=#FF6B6B>BLAD: brak referencji do RangeFinder</color>");
             return;
         }
 
@@ -88,7 +99,7 @@ public class MeasurementLogger : MonoBehaviour
 
         if (!float.TryParse(rawInput, NumberStyles.Float, CultureInfo.InvariantCulture, out realDistance))
         {
-            UpdateStatus("BLAD: wpisz odleglosc rzeczywista");
+            UpdateStatus("<color=#FF6B6B>BLAD: wpisz odleglosc rzeczywista</color>");
             return;
         }
 
@@ -96,9 +107,15 @@ public class MeasurementLogger : MonoBehaviour
         float error = measured - realDistance;
         float errorPct = realDistance > 0.001f ? (error / realDistance) * 100f : 0f;
 
-        string series = seriesLabelInput != null && !string.IsNullOrEmpty(seriesLabelInput.text)
-            ? seriesLabelInput.text
-            : "brak";
+        string series = Field(seriesLabelInput, "brak");
+        string lighting = Field(lightingInput, defaultLighting);
+        string location = Field(locationInput, defaultLocation);
+        string person = Field(referencePersonInput, defaultReferencePerson);
+
+        string profileLabel = calibrationProfile != null ? calibrationProfile.activeProfileLabel : "n/d";
+        string recognized = calibrationProfile != null
+            ? (calibrationProfile.deviceRecognized ? "tak" : "nie")
+            : "n/d";
 
         recordCount++;
 
@@ -114,7 +131,10 @@ public class MeasurementLogger : MonoBehaviour
             errorPct.ToString("F2", ci),
             rangeFinder.autoDetectMode ? "auto" : "reczny",
             rangeFinder.referenceHeight.ToString("F3", ci),
+            person,
             rangeFinder.focalNormalized.ToString("F6", ci),
+            profileLabel,
+            recognized,
             rangeFinder.lastZoom.ToString("F2", ci),
             rangeFinder.lastRatio.ToString("F4", ci),
             rangeFinder.lastNoseConf.ToString("F2", ci),
@@ -122,20 +142,27 @@ public class MeasurementLogger : MonoBehaviour
             rangeFinder.lastAnkleR.ToString("F2", ci),
             rangeFinder.debugImageInfo,
             SystemInfo.deviceModel,
-            lightingConditions,
+            lighting,
             location
         });
 
         try
         {
             File.AppendAllText(filePath, line + "\n", Encoding.UTF8);
-            UpdateStatus($"Zapisano #{recordCount}: {measured:F2} m (blad {error:+0.00;-0.00} m)");
+            UpdateStatus($"Zapisano #{recordCount}: {measured:F2} m (blad {error:+0.00;-0.00} m) | {series}");
         }
         catch (System.Exception e)
         {
             Debug.LogError($"[Logger] Blad zapisu: {e}");
-            UpdateStatus("BLAD zapisu do pliku");
+            UpdateStatus("<color=#FF6B6B>BLAD zapisu do pliku</color>");
         }
+    }
+
+    string Field(TMP_InputField input, string fallback)
+    {
+        if (input == null || string.IsNullOrWhiteSpace(input.text)) return fallback;
+        // srednik rozbilby strukture CSV
+        return input.text.Replace(';', ',').Trim();
     }
 
     /// <summary>Pokazuje sciezke pliku - przydatne przy pobieraniu przez adb.</summary>
