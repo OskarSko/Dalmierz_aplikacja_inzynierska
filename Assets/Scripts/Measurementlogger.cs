@@ -9,6 +9,8 @@ public class MeasurementLogger : MonoBehaviour
 {
     [Header("Referencje")]
     public RangeFinder rangeFinder;
+    [Tooltip("Tryb AR. Puste = wyszukiwane automatycznie w scenie.")]
+    public ArRangefinder arRangefinder;
     public CalibrationProfile calibrationProfile;
 
     [Header("UI - dane pomiaru")]
@@ -31,6 +33,11 @@ public class MeasurementLogger : MonoBehaviour
 
     void Start()
     {
+        if (arRangefinder == null)
+        {
+            arRangefinder = FindFirstObjectByType<ArRangefinder>(FindObjectsInactive.Include);
+        }
+
         if (lightingInput != null && string.IsNullOrEmpty(lightingInput.text))
             lightingInput.text = defaultLighting;
         if (locationInput != null && string.IsNullOrEmpty(locationInput.text))
@@ -71,7 +78,8 @@ public class MeasurementLogger : MonoBehaviour
             "rozdzielczosc_obrazu",
             "urzadzenie",
             "oswietlenie",
-            "miejsce"
+            "miejsce",
+            "wiek_odczytu_s"
         }));
 
         try
@@ -87,9 +95,12 @@ public class MeasurementLogger : MonoBehaviour
     /// <summary>Podepnij pod przycisk UI (OnClick).</summary>
     public void RecordMeasurement()
     {
-        if (rangeFinder == null)
+        bool arMode = arRangefinder != null && arRangefinder.isActiveAndEnabled;
+        bool heightMode = !arMode && rangeFinder != null && rangeFinder.isActiveAndEnabled;
+
+        if (!arMode && !heightMode)
         {
-            UpdateStatus("<color=#FF6B6B>BLAD: brak referencji do RangeFinder</color>");
+            UpdateStatus("<color=#FF6B6B>BLAD: brak aktywnego trybu pomiaru</color>");
             return;
         }
 
@@ -103,7 +114,46 @@ public class MeasurementLogger : MonoBehaviour
             return;
         }
 
-        float measured = rangeFinder.lastDistance;
+        var ci = CultureInfo.InvariantCulture;
+
+        float measured;
+        string mode;
+        string age = "";
+        string zoom = "", ratio = "", noseConf = "", ankleL = "", ankleR = "", imageInfo = "";
+
+        if (arMode)
+        {
+            if (!arRangefinder.HasFreshHit)
+            {
+                UpdateStatus("<color=#FF6B6B>BRAK TRAFIENIA AR - nie zapisano. Wyceluj w osobe/podloze.</color>");
+                return;
+            }
+            measured = arRangefinder.lastDistance;
+            mode = "AR";
+            age = arRangefinder.HitAge.ToString("F2", ci);
+        }
+        else
+        {
+            if (rangeFinder.autoDetectMode && !rangeFinder.HasFreshDetection)
+            {
+                UpdateStatus("<color=#FF6B6B>BRAK OSOBY W KADRZE - nie zapisano.</color>");
+                return;
+            }
+            measured = rangeFinder.lastDistance;
+            mode = rangeFinder.autoDetectMode ? "auto" : "reczny";
+            zoom = rangeFinder.lastZoom.ToString("F2", ci);
+            ratio = rangeFinder.lastRatio.ToString("F4", ci);
+
+            if (rangeFinder.autoDetectMode)
+            {
+                age = rangeFinder.DetectionAge.ToString("F2", ci);
+                noseConf = rangeFinder.lastNoseConf.ToString("F2", ci);
+                ankleL = rangeFinder.lastAnkleL.ToString("F2", ci);
+                ankleR = rangeFinder.lastAnkleR.ToString("F2", ci);
+                imageInfo = rangeFinder.debugImageInfo;
+            }
+        }
+
         float error = measured - realDistance;
         float errorPct = realDistance > 0.001f ? (error / realDistance) * 100f : 0f;
 
@@ -117,9 +167,11 @@ public class MeasurementLogger : MonoBehaviour
             ? (calibrationProfile.deviceRecognized ? "tak" : "nie")
             : "n/d";
 
+        string refHeight = rangeFinder != null ? rangeFinder.referenceHeight.ToString("F3", ci) : "";
+        string focal = rangeFinder != null ? rangeFinder.focalNormalized.ToString("F6", ci) : "";
+
         recordCount++;
 
-        var ci = CultureInfo.InvariantCulture;
         string line = string.Join(";", new string[]
         {
             recordCount.ToString(),
@@ -129,27 +181,28 @@ public class MeasurementLogger : MonoBehaviour
             measured.ToString("F3", ci),
             error.ToString("F3", ci),
             errorPct.ToString("F2", ci),
-            rangeFinder.autoDetectMode ? "auto" : "reczny",
-            rangeFinder.referenceHeight.ToString("F3", ci),
+            mode,
+            refHeight,
             person,
-            rangeFinder.focalNormalized.ToString("F6", ci),
+            focal,
             profileLabel,
             recognized,
-            rangeFinder.lastZoom.ToString("F2", ci),
-            rangeFinder.lastRatio.ToString("F4", ci),
-            rangeFinder.lastNoseConf.ToString("F2", ci),
-            rangeFinder.lastAnkleL.ToString("F2", ci),
-            rangeFinder.lastAnkleR.ToString("F2", ci),
-            rangeFinder.debugImageInfo,
+            zoom,
+            ratio,
+            noseConf,
+            ankleL,
+            ankleR,
+            imageInfo,
             SystemInfo.deviceModel,
             lighting,
-            location
+            location,
+            age
         });
 
         try
         {
             File.AppendAllText(filePath, line + "\n", Encoding.UTF8);
-            UpdateStatus($"Zapisano #{recordCount}: {measured:F2} m (blad {error:+0.00;-0.00} m) | {series}");
+            UpdateStatus($"Zapisano #{recordCount} [{mode}]: {measured:F2} m (blad {error:+0.00;-0.00} m) | {series}");
         }
         catch (System.Exception e)
         {

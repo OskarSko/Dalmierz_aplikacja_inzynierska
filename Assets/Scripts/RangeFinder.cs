@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using UnityEngine.InputSystem;
 
@@ -11,6 +12,15 @@ public class RangeFinder : MonoBehaviour
     public float referenceHeight = 1.8f;
     public float anthropometricFactor = 0.896f;
 
+    [Header("Osoba odniesienia - wzrost")]
+    [Tooltip("Pole w panelu ustawien do wpisania wzrostu osoby odniesienia (m lub cm). Opcjonalne.")]
+    public TMP_InputField referenceHeightInput;
+    [Tooltip("Najmniejszy akceptowany wzrost [m].")]
+    public float minReferenceHeight = 1.0f;
+    [Tooltip("Najwiekszy akceptowany wzrost [m].")]
+    public float maxReferenceHeight = 2.3f;
+    private const string ReferenceHeightPrefKey = "Dalmierz.referenceHeight";
+
     [Header("Kalibracja kamery")]
     public bool useCalibration = true;
     public float focalNormalized = 0.673673f;
@@ -20,6 +30,8 @@ public class RangeFinder : MonoBehaviour
     public RectTransform bottomLine;
     public Slider zoomSlider;
     public TextMeshProUGUI distanceText;
+    [Tooltip("Pokazuje pod wynikiem linijke diagnostyczna (raw, pewnosci, ratio).")]
+    public bool showDebugInfo = true;
     [Header("Sterowanie linii")]
     public float dragSensitivity = 0.001f;
     public float pinchZoomSensitivity = 0.005f;
@@ -31,15 +43,18 @@ public class RangeFinder : MonoBehaviour
     public bool autoDetectMode = false;
     public float autoSmoothSpeed = 8f;
     public TextMeshProUGUI autoDetectButtonText;
+    [Tooltip("Po ilu sekundach bez poprawnej detekcji wynik w trybie auto uznaje sie za nieaktualny.")]
+    public float detectionValidSeconds = 1.0f;
+    private float lastValidDetectionTime = -999f;
 
-    [Header("Przelacznik segmentowy trybu")] 
-    public Image segmentManualBg; 
-    public TextMeshProUGUI segmentManualText; 
-    public Image segmentAutoBg; 
-    public TextMeshProUGUI segmentAutoText; 
-    private readonly Color segActiveBg = new Color(0.133f, 0.827f, 0.933f, 1f); 
-    private readonly Color segInactiveBg = new Color(1f, 1f, 1f, 0f); 
-    private readonly Color segActiveText = new Color(0.016f, 0.173f, 0.325f, 1f); 
+    [Header("Przelacznik segmentowy trybu")]
+    public Image segmentManualBg;
+    public TextMeshProUGUI segmentManualText;
+    public Image segmentAutoBg;
+    public TextMeshProUGUI segmentAutoText;
+    private readonly Color segActiveBg = new Color(0.133f, 0.827f, 0.933f, 1f);
+    private readonly Color segInactiveBg = new Color(1f, 1f, 1f, 0f);
+    private readonly Color segActiveText = new Color(0.016f, 0.173f, 0.325f, 1f);
     private readonly Color segInactiveText = new Color(1f, 1f, 1f, 0.65f);
 
     private float targetRatio;
@@ -60,6 +75,41 @@ public class RangeFinder : MonoBehaviour
     [HideInInspector] public float lastAnkleL, lastAnkleR;
     [HideInInspector] public float lastZoom = 1f;
     public string debugImageInfo = "?";
+
+    /// <summary>
+    /// True, gdy w trybie auto ostatnia poprawna detekcja jest swieza.
+    /// Czytane przez MeasurementLogger - nieaktualny wynik nie jest zapisywany.
+    /// </summary>
+    public bool HasFreshDetection
+    {
+        get { return autoDetectMode && (Time.time - lastValidDetectionTime) <= detectionValidSeconds; }
+    }
+
+    /// <summary>Czas [s] od ostatniej poprawnej detekcji w trybie auto.</summary>
+    public float DetectionAge
+    {
+        get { return Time.time - lastValidDetectionTime; }
+    }
+
+    // Awake wywoluje sie nawet wtedy, gdy ModeSwitcher od razu wylaczy ten komponent
+    // (start w trybie AR), wiec wzrost z pola dziala we wszystkich trybach.
+    void Awake()
+    {
+        if (PlayerPrefs.HasKey(ReferenceHeightPrefKey))
+        {
+            float saved = PlayerPrefs.GetFloat(ReferenceHeightPrefKey, referenceHeight);
+            if (saved >= minReferenceHeight && saved <= maxReferenceHeight)
+            {
+                referenceHeight = saved;
+            }
+        }
+
+        if (referenceHeightInput != null)
+        {
+            referenceHeightInput.text = referenceHeight.ToString("0.00", CultureInfo.InvariantCulture);
+            referenceHeightInput.onEndEdit.AddListener(SetReferenceHeightFromText);
+        }
+    }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -120,7 +170,7 @@ public class RangeFinder : MonoBehaviour
                 {
                     Vector2 touchZeroPos = touchZero.position.ReadValue();
                     Vector2 touchOnePos = touchOne.position.ReadValue();
-                    
+
                     Vector2 touchZeroPrevPos = touchZeroPos - touchZero.delta.ReadValue();
                     Vector2 touchOnePrevPos = touchOnePos - touchOne.delta.ReadValue();
 
@@ -162,8 +212,23 @@ public class RangeFinder : MonoBehaviour
         lastDistance = calculatedDistance;
         lastRatio = currentRatio;
 
-        distanceText.text = $"<size=40%><color=#B0B0B0>CEL: {referenceHeight}m | ZOOM: {currentZoom:F1}x</color></size>\n<b>{calculatedDistance:F2}</b><size=60%> m</size>\n<size=30%><color=#22D3EE>raw={debugRawRatio:F3} dx={debugRawRatioX:F3} nos={debugNoseConf:F2} kostki={debugAnkleL:F2}/{debugAnkleR:F2} tgt={targetRatio:F3} cur={currentRatio:F3} upd={debugUpdateCount}</color></size>";
-        
+        string header = $"<size=40%><color=#B0B0B0>CEL: {referenceHeight:F2}m | ZOOM: {currentZoom:F1}x</color></size>\n";
+        string debugLine = showDebugInfo
+            ? $"\n<size=30%><color=#22D3EE>raw={debugRawRatio:F3} dx={debugRawRatioX:F3} nos={debugNoseConf:F2} kostki={debugAnkleL:F2}/{debugAnkleR:F2} tgt={targetRatio:F3} cur={currentRatio:F3} upd={debugUpdateCount}</color></size>"
+            : "";
+
+        if (autoDetectMode && !HasFreshDetection)
+        {
+            distanceText.text = header +
+                "<color=#FFD166><b>--.--</b></color><size=60%> m</size>\n" +
+                "<size=30%><color=#FFD166>SZUKANIE OSOBY W KADRZE...</color></size>" +
+                debugLine;
+        }
+        else
+        {
+            distanceText.text = header + $"<b>{calculatedDistance:F2}</b><size=60%> m</size>" + debugLine;
+        }
+
     }
     void OnEnable()
     {
@@ -172,7 +237,7 @@ public class RangeFinder : MonoBehaviour
         Camera.targetTexture = autoRenderTexture;
 
         Canvas canvas = topLine.GetComponentInParent<Canvas>();
-        
+
         autoBackgroundObj = new GameObject("AutomatyczneTloZoomu");
         autoBackgroundObj.transform.SetParent(canvas.transform, false);
         autoBackgroundObj.transform.SetAsFirstSibling();
@@ -203,6 +268,13 @@ public class RangeFinder : MonoBehaviour
             Destroy(autoRenderTexture);
         }
     }
+    void OnDestroy()
+    {
+        if (referenceHeightInput != null)
+        {
+            referenceHeightInput.onEndEdit.RemoveListener(SetReferenceHeightFromText);
+        }
+    }
     private int GetActiveTouchesCount()
     {
         int count = 0;
@@ -218,6 +290,42 @@ public class RangeFinder : MonoBehaviour
         }
         return count;
     }
+
+    /// <summary>
+    /// Ustawia wzrost osoby odniesienia z tekstu pola (np. "1.82", "1,82" lub "182").
+    /// Wartosc jest zapamietywana miedzy uruchomieniami aplikacji.
+    /// Mozna tez podpiac recznie pod On End Edit pola tekstowego.
+    /// </summary>
+    public void SetReferenceHeightFromText(string text)
+    {
+        string raw = (text ?? "").Trim().Replace(',', '.');
+        float value;
+        bool parsed = float.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+
+        // Wpisane w centymetrach (np. 182) -> metry
+        if (parsed && value > 3f) value /= 100f;
+
+        if (!parsed || value < minReferenceHeight || value > maxReferenceHeight)
+        {
+            Debug.LogWarning($"[RangeFinder] Niepoprawny wzrost '{text}' - dozwolone {minReferenceHeight:F2}-{maxReferenceHeight:F2} m. Zostaje {referenceHeight:F2} m.");
+            if (referenceHeightInput != null)
+            {
+                referenceHeightInput.SetTextWithoutNotify(referenceHeight.ToString("0.00", CultureInfo.InvariantCulture));
+            }
+            return;
+        }
+
+        referenceHeight = value;
+        PlayerPrefs.SetFloat(ReferenceHeightPrefKey, value);
+        PlayerPrefs.Save();
+
+        if (referenceHeightInput != null)
+        {
+            referenceHeightInput.SetTextWithoutNotify(value.ToString("0.00", CultureInfo.InvariantCulture));
+        }
+        Debug.Log($"[RangeFinder] Wzrost osoby odniesienia: {value:F2} m");
+    }
+
     public void UpdateFromDetection(PoseKeypoints kp, float fovFraction = 1f)
     {
         Vector2 headNorm = HeadFootEstimator.EstimateHeadTop(kp);
@@ -233,9 +341,18 @@ public class RangeFinder : MonoBehaviour
 
         if (kp.noseConfidence < 0.3f) return;
 
+        bool wasStale = !HasFreshDetection;
+
         debugUpdateCount++;
         float zoom = zoomSlider != null ? zoomSlider.value : 1f;
         targetRatio = Mathf.Clamp(debugRawRatio * fovFraction * zoom, 0.01f, 1.0f);
+        lastValidDetectionTime = Time.time;
+
+        // Po przerwie w detekcji nie wygladzamy od starej wartosci - od razu nowy wynik.
+        if (wasStale)
+        {
+            currentRatio = targetRatio;
+        }
     }
     public void ToggleAutoDetectMode()
     {
@@ -244,6 +361,7 @@ public class RangeFinder : MonoBehaviour
         if (autoDetectMode)
         {
             targetRatio = currentRatio;
+            lastValidDetectionTime = -999f;
         }
         if(autoDetectButtonText != null)
         {
@@ -253,8 +371,10 @@ public class RangeFinder : MonoBehaviour
     }
     public void SetAutoDetectMode(bool enabled)
     {
+        bool switchedOn = enabled && !autoDetectMode;
         autoDetectMode = enabled;
         if(enabled) targetRatio = currentRatio;
+        if (switchedOn) lastValidDetectionTime = -999f;
 
         if(autoDetectButtonText != null)
         {
