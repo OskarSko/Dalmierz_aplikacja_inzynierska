@@ -4267,6 +4267,56 @@ MonoBehaviour:
   isAlert: 0
   m_InputValidator: {fileID: 0}
   m_ShouldActivateOnSelect: 1
+--- !u!1 &426455964
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 426455966}
+  - component: {fileID: 426455965}
+  m_Layer: 0
+  m_Name: Yolo
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &426455965
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 426455964}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 268b40027b999e247b57ec769642d103, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::YoloPersonDetector
+  detectorModelAsset: {fileID: 5022602860645237092, guid: aa25179d7c5806e46b37c1483838a765, type: 3}
+  inputSize: 640
+  backend: 256
+  minScore: 0.25
+  centerPreference: 1
+  personClassIndex: 0
+--- !u!4 &426455966
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 426455964}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 148.30818, y: -0.00001, z: 2847.895}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &438597460
 GameObject:
   m_ObjectHideFlags: 0
@@ -6354,6 +6404,18 @@ MonoBehaviour:
   minConfidence: 0.3
   modelInputSize: 256
   rotateClockwise: 1
+  minAnkleConfidence: 0.2
+  lostAfterFailures: 3
+  searchLadderStep: 1.5
+  allowPaddedLargeCrop: 1
+  trackCenterLerp: 0.8
+  trackSizeLerp: 0.5
+  failureGrowFactor: 1.3
+  headExtension: 0.12
+  personDetector: {fileID: 0}
+  detectorRegionSize: 0
+  verboseLog: 0
+  statusLine: 
 --- !u!4 &1031080593
 Transform:
   m_ObjectHideFlags: 0
@@ -10764,3 +10826,4 @@ SceneRoots:
   - {fileID: 1298297508}
   - {fileID: 1218974306}
   - {fileID: 1107913730}
+  - {fileID: 426455966}
