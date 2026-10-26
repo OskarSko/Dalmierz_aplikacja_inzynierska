@@ -79,7 +79,8 @@ public class MeasurementLogger : MonoBehaviour
             "urzadzenie",
             "oswietlenie",
             "miejsce",
-            "wiek_odczytu_s"
+            "wiek_odczytu_s",
+            "wycinek_px"
         }));
 
         try
@@ -119,7 +120,9 @@ public class MeasurementLogger : MonoBehaviour
         float measured;
         string mode;
         string age = "";
-        string zoom = "", ratio = "", noseConf = "", ankleL = "", ankleR = "", imageInfo = "";
+        string zoom = "", ratio = "", noseConf = "", ankleL = "", ankleR = "", cropSize = "";
+        // Rozdzielczosc kamery we wszystkich trybach (ustawiana przez PersonAutoDetector)
+        string imageInfo = rangeFinder != null ? rangeFinder.cameraResolution : "";
 
         if (arMode)
         {
@@ -150,7 +153,7 @@ public class MeasurementLogger : MonoBehaviour
                 noseConf = rangeFinder.lastNoseConf.ToString("F2", ci);
                 ankleL = rangeFinder.lastAnkleL.ToString("F2", ci);
                 ankleR = rangeFinder.lastAnkleR.ToString("F2", ci);
-                imageInfo = rangeFinder.debugImageInfo;
+                cropSize = rangeFinder.lastCropSize > 0f ? rangeFinder.lastCropSize.ToString("F0", ci) : "";
             }
         }
 
@@ -196,7 +199,8 @@ public class MeasurementLogger : MonoBehaviour
             SystemInfo.deviceModel,
             lighting,
             location,
-            age
+            age,
+            cropSize
         });
 
         try

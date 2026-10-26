@@ -79,6 +79,8 @@ public class PersonAutoDetector : MonoBehaviour
     private bool isProcessing = false;
     private bool cameraConfigSelected = false;
 
+    private int allFramesCounter = 0;
+
     private byte[] poseBytes;
     private int[] poseInts;
     private byte[] detectorBytes;
@@ -107,6 +109,10 @@ public class PersonAutoDetector : MonoBehaviour
             cameraConfigSelected = true;
             SelectBestCameraConfig();
         }
+        // Rozdzielczosc kamery do CSV we wszystkich trybach (konfiguracja moze zostac
+        // zastosowana z opoznieniem, dlatego odczyt jest ponawiany co 30 klatek).
+        if (allFramesCounter++ % 30 == 0) UpdateCameraResolution();
+
         if (rangeFinder == null) return;
         if (!rangeFinder.autoDetectMode)
         {
@@ -186,6 +192,7 @@ public class PersonAutoDetector : MonoBehaviour
             imageDisposed = true;
 
             rangeFinder.debugImageInfo = $"{W}x{H} crop={crop.side:F0}";
+            rangeFinder.cameraResolution = $"{W}x{H}";
 
             // ---------- 3a. Detektor osob ----------
             if (runDetector)
@@ -221,6 +228,7 @@ public class PersonAutoDetector : MonoBehaviour
             if (goodForMeasure)
             {
                 // Ten sam wzor co wczesniej: ratio_kadr * (bok_wycinka / szerokosc_obrazu)
+                rangeFinder.lastCropSize = crop.side;
                 rangeFinder.UpdateFromDetection(kp, crop.side / W);
             }
 
@@ -466,6 +474,17 @@ public class PersonAutoDetector : MonoBehaviour
 
             cameraManager.currentConfiguration = best;
             Debug.Log($"[Kamera] WYBRANO: {best.width}x{best.height}");
+        }
+        UpdateCameraResolution();
+    }
+
+    void UpdateCameraResolution()
+    {
+        if (rangeFinder == null || cameraManager == null) return;
+        var applied = cameraManager.currentConfiguration;
+        if (applied.HasValue)
+        {
+            rangeFinder.cameraResolution = $"{applied.Value.width}x{applied.Value.height}";
         }
     }
 

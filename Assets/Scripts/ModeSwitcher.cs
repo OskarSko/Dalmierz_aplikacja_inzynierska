@@ -26,12 +26,18 @@ public class ModeSwitcher : MonoBehaviour
     private readonly Color activeText = new Color(0.016f, 0.173f, 0.325f, 1f);
     private readonly Color inactiveText = new Color(1f, 1f, 1f, 0.65f);
 
+    [Header("Start")]
+    [Tooltip("Zaznaczone = start w trybie AR. Odznaczone = start w trybie pomiaru wzrostem (metoda glowna).")]
+    public bool startInArMode = false;
+
     private bool isArMode = true;
-    
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Awake()
     {
-        ActivateArMode();
+        isArMode = startInArMode;
+        if (isArMode) ActivateArMode();
+        else ActivateRangeFinder();
     }
 
     public void ToggleMode()

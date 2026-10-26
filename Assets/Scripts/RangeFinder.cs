@@ -75,6 +75,8 @@ public class RangeFinder : MonoBehaviour
     [HideInInspector] public float lastAnkleL, lastAnkleR;
     [HideInInspector] public float lastZoom = 1f;
     public string debugImageInfo = "?";
+    [HideInInspector] public string cameraResolution = "?";   // ustawiane przez PersonAutoDetector, wszystkie tryby
+    [HideInInspector] public float lastCropSize = -1f;        // bok wycinka [px] przy ostatniej poprawnej detekcji
 
     /// <summary>
     /// True, gdy w trybie auto ostatnia poprawna detekcja jest swieza.

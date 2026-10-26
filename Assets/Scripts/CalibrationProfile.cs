@@ -73,7 +73,8 @@ public class CalibrationProfile : MonoBehaviour
             SetStatus(
                 $"<color=#22D3EE>Profil: {match.label}</color>\n" +
                 $"f_n = {match.focalNormalized:F6}   FOV = {match.horizontalFovDegrees:F2}°   " +
-                $"blad reproj. = {match.rmsReprojectionError:F2} px");
+                $"blad reproj. = {match.rmsReprojectionError:F2} px" +
+                CheckProfileConsistency(match));
         }
         else
         {
@@ -86,6 +87,25 @@ public class CalibrationProfile : MonoBehaviour
                 $"Uzyto wartosci zapasowej f_n = {fallbackFocalNormalized:F6}.\n" +
                 "Pomiary moga byc obarczone bledem systematycznym.");
         }
+    }
+
+    /// <summary>
+    /// Sprawdza, czy dane zrodlowe profilu sa uzupelnione i zgodne z f_n = fx / szerokosc.
+    /// Zwraca ostrzezenie do panelu ustawien albo pusty tekst.
+    /// </summary>
+    string CheckProfileConsistency(DeviceProfile p)
+    {
+        if (p.calibrationWidth <= 0 || p.calibrationHeight <= 0 || p.fx <= 0f || p.imagesUsed <= 0)
+        {
+            return "\n<color=#FFD166>Profil: uzupelnij dane zrodlowe (rozdzielczosc, fx, liczba zdjec).</color>";
+        }
+
+        float fnFromFx = p.fx / p.calibrationWidth;
+        if (Mathf.Abs(fnFromFx - p.focalNormalized) > 0.0001f)
+        {
+            return $"\n<color=#FFD166>Niezgodnosc: fx/szerokosc = {fnFromFx:F6}, a f_n = {p.focalNormalized:F6}</color>";
+        }
+        return "";
     }
 
     DeviceProfile FindProfile(string device)
